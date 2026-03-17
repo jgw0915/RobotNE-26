@@ -1,65 +1,77 @@
-# HW1 Path Planning: Implementation Notes
+# HW1 Path Planning: A* and RRT* Implementation Summary
 
 ## A* Algorithm Implementation
 
-### Pseudocode
+### Core Idea
 
-**preloop (one-time init)**
+A* performs best-first search by minimizing:
 
-- Initialize data structures:
-	- `open` as a min-heap of `(f, node)`; start with `(h(start), start)`.
-	- `g = {start: 0}`, `h = {start: heuristic(start, goal)}`.
-	- `parent = {start: None}`.
-	- `closed = set()`.
-	- `visited = {start}` (for visualization).
-- Don’t expand neighbors here; just seed the frontier.
+$$
+f(n)=g(n)+h(n),
+$$
 
-**step (single A* expansion)**
+where `g(n)` is the accumulated cost from start to node `n`, and `h(n)` estimates the remaining cost to the goal.
 
-- If `open` is empty: set `is_done` and store failure state.
-- Pop `(f, current)` with the lowest `f` from `open`.
-- If `current` already in `closed`, skip to next pop (loop step again).
-- Add `current` to `closed`.
-- Goal check: if `distance(current, goal) <= goal_threshold`, set `is_done` and mark `goal_node = current`; return.
-- For each `nbr` in `get_neighbor_nodes(current)`:
-	- Skip if outside map, collides (`occupancy_map` or `check_collision_free`).
-	- `tentative_g = g[current] + cost(current, nbr)` (cost can be grid_size for 4-neighbors, or Euclidean if diagonals are allowed).
-	- If `nbr` not in `g` or `tentative_g < g[nbr]`:
-		- `parent[nbr] = current`
-		- `g[nbr] = tentative_g`
-		- `h[nbr] = heuristic(nbr, goal)` (Euclidean)
-		- Push `(g[nbr] + h[nbr], nbr)` to `open`
-		- Add `nbr` to `visited` for visualization
+### Pseudocode (preloop / step / postloop)
 
-**postloop (finalize result)**
+**Preloop (one-time initialization)**
 
-- If goal reached: `path = collect_path(goal_node)` using `parent` links (or helper) and return `(path, visited)`.
-- If failure: return `(empty path or None, visited)`.
+- Initialize `open` as a min-heap and push `(h(start), start)`.
+- Initialize `g`, `h`, and `parent` as `{start:0}`, `{start:heuristic(start,goal)}`, and `{start:None}`.
+- Initialize `closed = set()` and `visited = {start}`.
 
-### What I Learned
+**Step (single expansion)**
 
-- The key to A* performance is maintaining consistent bookkeeping (`g`, `h`, `parent`, `closed`) and only updating a node when a strictly better `g` is found.
-- Separating the algorithm into preloop/step/postloop makes debugging much easier and supports step-by-step visualization.
-- Collision checks and boundary checks are as important as the search logic; many failures come from invalid neighbor expansion rather than heuristic design.
-- The heuristic should be admissible and consistent with motion cost; Euclidean distance works well when movement cost is geometric.
+- If `open` is empty, terminate with failure; otherwise pop the node with minimum `f`.
+- If the node is already in `closed`, skip it; else add it to `closed`.
+- If `distance(current, goal) <= goal_threshold`, mark success and stop.
+- For each node in `get_neighbor_nodes(current)`:
+  - skip invalid or colliding neighbors;
+  - compute `tentative_g = g[current] + cost(current,nbr)`;
+  - if improved, update `parent/g/h` and push `(g+h,nbr)` into `open`.
+
+**Postloop (finalization)**
+
+- If goal is reached, reconstruct the path by tracing `parent` links.
+- Otherwise, return an empty path (or `None`) and `visited`.
+
+### What I Learned from A*
+
+- Correct bookkeeping of `g/h/parent/closed` is essential for correctness.
+- The preloop--step--postloop split makes debugging and visualization easier.
+- In practice, collision and boundary checks usually determine robustness.
 
 ## RRT* Algorithm Implementation
 
-### Pseudocode
+### Core Idea
 
-1. Initialize graph (`visited_nodes`).
-2. Sample points in 2D space using `sample_random_node()`.
-3. Find the nearest point in graph.
-4. Extend from nearest node and check collision (new node and edge).
-	 - Let the nearest point in graph be the new node’s parent.
-5. Find the near-node set of the new node within a distance range.
-6. Check whether path cost is smaller when selecting a different parent for the new node from the near-node set.
-7. Check whether path cost is smaller when selecting the new node as parent for nodes in the near-node set (rewiring).
-8. Add the new node and edge into the graph.
+RRT* grows a feasible tree and improves path cost through parent selection and rewiring.
 
-### What I Learned
+### Pseudocode (preloop / step / postloop)
 
-- RRT* differs from basic RRT mainly in optimization: choosing a better parent and rewiring nearby nodes can significantly reduce final path cost.
-- The neighbor radius is a practical tradeoff: too small gives weak optimization, too large increases computation each iteration.
-- Collision-free edge validation is critical because every improvement step (parent change and rewiring) depends on valid local connections.
-- Even though RRT* is asymptotically optimal, finite iteration budgets matter in practice; good sampling and parameter tuning strongly affect final quality.
+**Preloop (one-time initialization)**
+
+- Initialize tree `visited_nodes` with the start node.
+- Set planning parameters: maximum iterations, step size, and neighbor radius.
+- Define goal-biased sampling in `sample_random_node()`: with probability `0.3`, return the goal node as the sample; otherwise, return a random free-space node.
+
+**Step (single growth and optimization iteration)**
+
+- Sample a node using `sample_random_node()` (goal with probability `0.3`, random free-space node with probability `0.7`), then find its nearest tree node.
+- Steer from the nearest node toward the sample; keep the new node only if the edge is collision-free.
+- Find nearby nodes within radius and choose the parent with minimum total cost.
+- Rewire nearby nodes if connecting through the new node reduces cost and remains collision-free.
+- Insert the new node and updated edges into the tree.
+- If `distance(new_node, goal_node) <= goal_threshold` and the edge from new node to goal is collision-free, connect the goal node, update its cost/parent, and terminate early with success.
+
+**Postloop (finalization)**
+
+- If the goal node was connected during planning, reconstruct the final trajectory by tracing parent links to the start.
+- Otherwise, return failure with the explored tree.
+
+### What I Learned from RRT*
+
+- The main upgrade over RRT is local optimization via parent reselection and rewiring.
+- A goal-bias probability of `0.3` accelerates convergence toward the target while still preserving exploration.
+- Neighbor radius controls the tradeoff between path quality and runtime.
+- With finite iterations, sampling strategy and collision checks dominate final performance.
