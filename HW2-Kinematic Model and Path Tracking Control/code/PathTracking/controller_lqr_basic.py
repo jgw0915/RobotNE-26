@@ -53,5 +53,26 @@ class ControllerLQRBasic(Controller):
         
         # Optional TODO: LQR Control for Basic Kinematic Model
         # You can implement this if you want to use LQR for basic kinematic model in F1 Challenge
-        next_w = 0
+        theta_path = utils.angle_norm(target[2])
+        theta_e = np.deg2rad(utils.angle_norm(theta_path - yaw))
+
+        dx = x - target[0]
+        dy = y - target[1]
+        path_heading = np.deg2rad(theta_path)
+        path_left_normal = np.array([-np.sin(path_heading), np.cos(path_heading)])
+        e = dx * path_left_normal[0] + dy * path_left_normal[1]
+
+        A = np.array([
+            [1.0, -v * self.dt],
+            [0.0, 1.0]
+        ])
+        B = np.array([
+            [0.0],
+            [-self.dt]
+        ])
+
+        x_state = np.array([[e], [theta_e]])
+        P = self._solve_DARE(A, B, self.Q, self.R)
+        K = np.linalg.inv(self.R + B.T @ P @ B) @ (B.T @ P @ A)
+        next_w = np.rad2deg(float(-(K @ x_state)[0, 0]))
         return next_w

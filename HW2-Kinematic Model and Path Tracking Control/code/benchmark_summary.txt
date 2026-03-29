@@ -1,0 +1,14 @@
+
+=== F1 Challenge Benchmark Summary ===
+Simulator    Controller     Final Score  Silverstone       Suzuka        Monza
+------------------------------------------------------------------------------
+bicycle      stanley               9.84         9.52        10.00        10.00
+bicycle      pure_pursuit          9.81         9.42        10.00        10.00
+bicycle      lqr                   9.80         9.40        10.00        10.00
+basic        pure_pursuit          9.57         9.20        10.00         9.50
+diff_drive   pure_pursuit          9.57         9.20        10.00         9.50
+basic        pid                   9.37         8.92        10.00         9.20
+diff_drive   pid                   9.37         8.97        10.00         9.15
+basic        lqr                   8.23         6.73        10.00         7.97
+diff_drive   lqr                   8.03         6.40        10.00         7.68
+bicycle      pid                   7.51         6.40        10.00         6.12

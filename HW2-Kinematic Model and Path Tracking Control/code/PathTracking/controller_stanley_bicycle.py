@@ -7,11 +7,13 @@ from PathTracking.controller import Controller
 class ControllerStanleyBicycle(Controller):
     def __init__(self, model, 
                  # TODO 4.3.1: Tune Stanley Gain
-                 kp=0):
+                 kp=2.0):
         self.path = None
         self.kp = kp
         self.l = model.l
         self.current_idx = 0
+        #NewFeature: Added a steering saturation limit so Stanley control respects the bicycle steering bound.
+        self.delta_limit = 40.0
 
     def set_path(self, path):
         super().set_path(path)
@@ -41,7 +43,17 @@ class ControllerStanleyBicycle(Controller):
         target = self.path[min_idx]
 
         # TODO 4.3.1: Stanley Control for Bicycle Kinematic Model
-        next_delta = 0
+        theta_e = utils.angle_norm(target[2] - yaw)
+
+        dx = target[0] - front_x
+        dy = target[1] - front_y
+        path_heading = np.deg2rad(target[2])
+        path_normal = np.array([-np.sin(path_heading), np.cos(path_heading)])
+        e = dx * path_normal[0] + dy * path_normal[1]
+
+        delta_e = np.rad2deg(np.arctan2(self.kp * e, max(abs(vf), 1e-6)))
+        next_delta = theta_e + delta_e
+        next_delta = np.clip(next_delta, -self.delta_limit, self.delta_limit)
         # [end] TODO 4.3.1
     
         return next_delta
