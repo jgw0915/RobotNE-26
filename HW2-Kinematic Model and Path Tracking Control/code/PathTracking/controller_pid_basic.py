@@ -52,7 +52,8 @@ class ControllerPIDBasic(Controller):
         self.current_idx = min_idx
         target = self.path[min_idx]
 
-        # TODO 4.1.2: PID Control for Basic Kinematic Model
+        # Problem 4.1.1
+        # NewFeature : dded a preview-based PID enhancement with speed-aware lookahead, integral clamping, and angular-velocity saturation to improve lateral tracking stability and accuracy.
         preview_dist = np.clip(
             self.lookahead_gain * abs(v) + self.lookahead_base,
             self.lookahead_base,
@@ -91,7 +92,6 @@ class ControllerPIDBasic(Controller):
         next_w = w_ff + self.kp * err + self.ki * self.acc_ep + self.kd * (err - self.last_ep) / self.dt
         self.last_ep = err
         next_w = np.clip(next_w, -self.w_limit, self.w_limit)
-        # [end] TODO 4.1.2
 
         return next_w
 
