@@ -39,7 +39,7 @@ class ControllerPIDBasic(Controller):
             print("No path !!")
             return None
         
-        #NewFeature: Include speed in the state so the preview-based PID controller can adapt its lookahead distance.
+        #NewFeature: Adding velocity info
         # Extract State
         x, y, yaw, v = info["x"], info["y"], info["yaw"], info["v"]
 
