@@ -2,10 +2,9 @@ import os
 
 import gymnasium as gym
 import numpy as np
+from dummy_env import DummyEnv
 from gymnasium import spaces
 from stable_baselines3 import PPO
-
-from dummy_env import DummyEnv
 
 
 class MLPlay:
@@ -37,6 +36,4 @@ class MLPlay:
 
         # NOTE: DO NOT MODIFY.
         # Sending additional dummy discrete actions that would not be needed for this assignment
-        print(self.dummy_env.action_space.shape)
-        return np.zeros(self.dummy_env.action_space.shape), (0, 0)
-        # return action, (0, 0)
+        return action, (0, 0)
