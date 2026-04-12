@@ -32,6 +32,16 @@ class RewardManager:
         2. If the current frame's index > the previous frame's index, it means progress was made. Return a positive reward
         3. If there is no change, return 0.0.
         """
+        if self.prev_observation is None or self.observation is None:
+            return 0.0
+
+        prev_index = int(self.prev_observation["last_checkpoint_index"])
+        current_index = int(self.observation["last_checkpoint_index"])
+        checkpoint_progress = current_index - prev_index
+
+        if checkpoint_progress > 0:
+            return 50.0 * checkpoint_progress
+
         return 0.0
 
     def calculate_distance_reward(self):
@@ -47,7 +57,16 @@ class RewardManager:
            - If current_distance > prev_distance (getting farther) -> penalize
         3. If the distance hasn't changed, return 0.0.
         """
-        return 0.0
+        if self.prev_observation is None or self.observation is None:
+            return 0.0
+
+        prev_target = np.asarray(self.prev_observation["target_position"], dtype=np.float32)
+        current_target = np.asarray(self.observation["target_position"], dtype=np.float32)
+        prev_distance = np.linalg.norm(prev_target)
+        current_distance = np.linalg.norm(current_target)
+
+        distance_progress = prev_distance - current_distance
+        return float(np.clip(distance_progress * 0.5, -1.0, 1.0))
 
     def calculate_survival_reward(self):
         """
@@ -57,7 +76,35 @@ class RewardManager:
         Hints:
         Check if agent's health(agent_health) reaches 0
         """
-        return 0.0
+        if self.observation is None:
+            return 0.0
+
+        reward = -0.01
+        current_health = float(self.observation["agent_health"])
+
+        if current_health <= 0:
+            return -10.0
+
+        if self.prev_observation is not None:
+            prev_health = float(self.prev_observation["agent_health"])
+            health_loss = prev_health - current_health
+            if health_loss > 0:
+                reward -= 2.0 * health_loss
+
+        terrain_grid = np.asarray(self.observation["terrain_grid"])
+        if terrain_grid.size > 0:
+            center = tuple(size // 2 for size in terrain_grid.shape[:2])
+            if terrain_grid.ndim >= 2 and np.any(terrain_grid[center] != 0):
+                reward -= 1.0
+
+            nearby_terrain = terrain_grid
+            if terrain_grid.ndim >= 2 and terrain_grid.shape[0] >= 3 and terrain_grid.shape[1] >= 3:
+                row, col = center
+                nearby_terrain = terrain_grid[row - 1 : row + 2, col - 1 : col + 2]
+            danger_ratio = np.mean(nearby_terrain != 0)
+            reward -= 0.05 * float(danger_ratio)
+
+        return reward
 
     def calculate_reward(self):
         """
@@ -74,8 +121,12 @@ class RewardManager:
         Return values:
         - total_reward (float): The total score for this frame.
         """
-        # TODO 6: Complete the reward function
-        return 0.0
+        flag_capture_score = self.calculate_flag_capture_reward()
+        distance_score = self.calculate_distance_reward()
+        survival_score = self.calculate_survival_reward()
+
+        total_reward = flag_capture_score + distance_score + survival_score
+        return float(total_reward)
 
 
 class MLPlay:
